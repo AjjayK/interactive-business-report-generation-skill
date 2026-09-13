@@ -17,6 +17,8 @@ const themedArtifact = path.join(root, "tests", ".artifacts", "custom-theme-repo
 const themedUrl = pathToFileURL(themedArtifact).href;
 const minimalArtifact = path.join(root, "tests", ".artifacts", "minimal-reference-report.html");
 const minimalUrl = pathToFileURL(minimalArtifact).href;
+const edgeArtifact = path.join(root, "tests", ".artifacts", "runtime-edge-cases.html");
+const edgeUrl = pathToFileURL(edgeArtifact).href;
 
 test.beforeAll(() => {
   execFileSync("python", [
@@ -55,6 +57,12 @@ test.beforeAll(() => {
     path.join(skillDir, "scripts", "render_html_report.py"),
     path.join(skillDir, "examples", "minimal-reference-fixture.json"),
     minimalArtifact
+  ], { stdio: "inherit" });
+  execFileSync("python", [
+    "-B",
+    path.join(skillDir, "scripts", "render_html_report.py"),
+    path.join(root, "tests", "fixtures", "runtime-edge-cases.json"),
+    edgeArtifact
   ], { stdio: "inherit" });
 });
 
@@ -236,6 +244,82 @@ test("all thirteen chart runtime families render", async ({ page }) => {
   await expect(page.locator("[data-chart-ready='true']")).toHaveCount(13);
   await expect(page.locator("[data-chart-host] svg")).toHaveCount(13);
   expect(consoleErrors).toEqual([]);
+});
+
+test("runtime edge cases preserve plotted geometry and declared scales", async ({ page }) => {
+  const consoleErrors = [];
+  page.on("console", message => { if (message.type() === "error") consoleErrors.push(message.text()); });
+  page.on("pageerror", error => consoleErrors.push(error.message));
+  await page.setViewportSize({ width: 992, height: 900 });
+  await page.goto(edgeUrl, { waitUntil: "load" });
+  await expect(page.locator("[data-chart-ready='true']")).toHaveCount(6);
+  await page.waitForTimeout(400);
+  const runtime = await page.evaluate(() => {
+    const chart = id => echarts.getInstanceByDom(document.querySelector(`#chart-${id} [data-chart-host]`));
+    const temporal = chart("temporal");
+    const temporalOption = temporal.getOption();
+    const temporalPixels = temporalOption.series[0].data.map(item =>
+      temporal.convertToPixel({ seriesIndex: 0 }, item.value));
+    const heatmap = chart("heatmap");
+    const heatmapCells = heatmap.getZr().storage.getDisplayList().filter(item =>
+      item.type === "rect" && Object.keys(item).some(key =>
+        key.startsWith("__ec_inner_") && item[key]?.seriesIndex === 0 &&
+        Number.isInteger(item[key]?.dataIndex)) &&
+      [item.shape.x, item.shape.y, item.shape.width, item.shape.height].every(Number.isFinite) &&
+      item.shape.width > 0 && item.shape.height > 0).length;
+    const waterfallChart = chart("waterfall");
+    const waterfall = waterfallChart.getOption();
+    const growthFill = getComputedStyle(document.documentElement).getPropertyValue("--primary-light").trim();
+    const growthShape = waterfallChart.getZr().storage.getDisplayList()
+      .find(item => item.type === "rect" && item.style?.fill === growthFill)?.shape;
+    const growthPixels = [-10, -5].map(value => waterfallChart.convertToPixel({ yAxisIndex: 0 }, value));
+    const stacked = chart("stacked").getOption();
+    return {
+      temporalAxis: temporalOption.xAxis[0].type,
+      temporalPixels,
+      heatmapCells,
+      waterfallType: waterfall.series[0].type,
+      waterfallGrowth: waterfall.series[0].data[1],
+      waterfallGrowthPixels: growthShape ? {
+        top: growthShape.y,
+        bottom: growthShape.y + growthShape.height,
+        expectedTop: Math.min(...growthPixels),
+        expectedBottom: Math.max(...growthPixels)
+      } : null,
+      stackedMaximum: stacked.xAxis[0].max
+    };
+  });
+  expect(runtime.temporalAxis).toBe("time");
+  expect(runtime.temporalPixels).toHaveLength(3);
+  expect(runtime.temporalPixels.flat().every(Number.isFinite), JSON.stringify(runtime.temporalPixels)).toBe(true);
+  expect(runtime.heatmapCells).toBe(4);
+  expect(runtime.waterfallType).toBe("custom");
+  expect(runtime.waterfallGrowth).toEqual(["Growth", -10, -5, 5, 0]);
+  expect(runtime.waterfallGrowthPixels).not.toBeNull();
+  expect(runtime.waterfallGrowthPixels.top).toBeCloseTo(runtime.waterfallGrowthPixels.expectedTop, 5);
+  expect(runtime.waterfallGrowthPixels.bottom).toBeCloseTo(runtime.waterfallGrowthPixels.expectedBottom, 5);
+  expect(runtime.stackedMaximum).toBe(100);
+  expect(consoleErrors).toEqual([]);
+});
+
+test("filters update chart detail tables only within declared dataset scope", async ({ page }) => {
+  await page.setViewportSize({ width: 992, height: 900 });
+  await page.goto(edgeUrl, { waitUntil: "load" });
+  const section = page.locator("#section-scope");
+  await section.getByLabel("Segment").selectOption("A");
+  await expect(section.locator("#chart-scoped")).toHaveAttribute("data-visible-rows", "1");
+  await expect(section.locator("#chart-unrelated")).toHaveAttribute("data-visible-rows", "2");
+  const visibleCounts = await section.evaluate(root => {
+    const count = selector => [...root.querySelectorAll(selector)].filter(row => !row.hidden).length;
+    const unrelatedTable = [...root.querySelectorAll("[data-report-table]")]
+      .find(wrapper => wrapper.querySelector("caption")?.textContent === "Unrelated detail");
+    return {
+      scopedDetail: count("#chart-scoped + details [data-report-table] tbody tr"),
+      unrelatedDetail: count("#chart-unrelated + details [data-report-table] tbody tr"),
+      unrelatedTable: [...unrelatedTable.querySelectorAll("tbody tr")].filter(row => !row.hidden).length
+    };
+  });
+  expect(visibleCounts).toEqual({ scopedDetail: 1, unrelatedDetail: 2, unrelatedTable: 2 });
 });
 
 test("custom theme reaches CSS and chart rendering", async ({ page }) => {

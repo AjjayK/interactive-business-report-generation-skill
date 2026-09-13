@@ -6,7 +6,7 @@
   "license": "Apache-2.0",
   "bundle": "echarts.custom.min.js",
   "entry": "../scripts/echarts-entry.js",
-  "bytes": 625840,
-  "sha256": "7811c6c7eec70003148a08d0f5af52744fcf996aad42e1ce4be35141c18069ba",
+  "bytes": 670617,
+  "sha256": "cb48375e4fbae39875dfd2b9e8169626125a0d1547af2c1d71e874b4c6515122",
   "rebuild": "npm ci && npm run build:charts"
 }

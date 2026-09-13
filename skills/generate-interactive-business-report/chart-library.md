@@ -63,7 +63,7 @@ generated from the same selected rows.
 | `scatter` | Numeric `x`, `value` | Required `x_unit`; optional `x_domain` |
 | `bullet` | Numeric `value`, `target` | Optional text `status` for explicit semantics |
 | `variance` | Numeric `value` | `sort`; optional text `status`; diverges around zero |
-| `histogram` | Numeric count `value`, `bin_start`, `bin_end` | Bins must be ordered, non-overlapping, and positive-width |
+| `histogram` | Numeric count `value`, `bin_start`, `bin_end` | Bins must be contiguous, ordered, positive-width, and equal-width; use a custom figure for unequal-width density histograms |
 | `range` | Numeric `low`, `high` | Optional numeric point `value` inside the range |
 | `heatmap` | Text/date/datetime `x_category`, numeric `value` | Repeated category rows form the matrix |
 | `timeline` | Numeric/date/datetime `x` | Optional text `detail` |

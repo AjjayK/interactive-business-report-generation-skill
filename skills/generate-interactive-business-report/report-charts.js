@@ -148,7 +148,8 @@
   function lineOption(spec, rows, scatter = false) {
     const option = common(spec, "axis");
     option.grid = { left: 66, right: 30, top: 32, bottom: 58 };
-    option.xAxis = { type: "value", name: spec.x_unit, nameLocation: "middle", nameGap: 34,
+    option.xAxis = { type: ["date", "datetime"].includes(spec.x_type) ? "time" : "value",
+      name: spec.x_unit, nameLocation: "middle", nameGap: 34,
       scale: true, splitNumber: mobileQuery.matches ? 3 : 5, ...axisStyle() };
     if (spec.x_domain) [option.xAxis.min, option.xAxis.max] = spec.x_domain;
     option.yAxis = valueAxis(spec, true);
@@ -178,59 +179,79 @@
 
   function waterfallOption(spec, rows) {
     let running = 0;
-    const helper = [];
-    const values = [];
-    rows.forEach(row => {
+    const geometry = rows.map(row => {
+      let start;
+      let end;
       if (row.kind === "total") {
-        helper.push(0);
-        values.push({ value: row.value, display: row.value, itemStyle: { color: PRIMARY } });
+        start = 0;
+        end = row.value;
         running = row.value;
       } else {
-        const next = running + row.value;
-        helper.push(Math.min(running, next));
-        values.push({ value: Math.abs(row.value), display: row.value,
-          itemStyle: { color: row.value < 0 ? PRIMARY_DARK : PRIMARY_LIGHT } });
-        running = next;
+        start = running;
+        end = running + row.value;
+        running = end;
       }
+      return [row.label, start, end, row.value, row.kind === "total" ? 1 : 0];
     });
     const option = common(spec, "axis");
-    if (mobileQuery.matches) {
+    const horizontal = mobileQuery.matches;
+    if (horizontal) {
       option.grid = categoryGrid();
       option.xAxis = valueAxis(spec);
       option.yAxis = categoryAxis(rows);
-      option.series = [
-        { type: "bar", stack: "waterfall", silent: true,
-          itemStyle: { color: "transparent" }, data: helper },
-        { name: spec.unit, type: "bar", stack: "waterfall", barMaxWidth: 18,
-          data: values.map(item => ({
-            ...item,
-            label: { position: item.display < 0 ? "left" : "right" }
-          })),
-          label: { show: true, color: INK, fontSize: 11,
-            formatter: params => formatDisplayNumber(params.data.display, spec.decimals) } }
-      ];
-      return option;
+    } else {
+      option.grid = { left: 64, right: 24, top: 24, bottom: 72 };
+      option.xAxis = {
+        type: "category",
+        data: rows.map(row => row.label),
+        axisLabel: {
+          ...axisStyle().axisLabel,
+          interval: 0,
+          rotate: rows.length > 6 ? 25 : 0
+        }
+      };
+      option.yAxis = valueAxis(spec);
     }
-    option.grid = { left: 64, right: 24, top: 24, bottom: mobileQuery.matches ? 104 : 72 };
-    option.xAxis = {
-      type: "category",
-      data: rows.map(row => row.label),
-      axisLabel: {
-        ...axisStyle().axisLabel,
-        interval: 0,
-        rotate: mobileQuery.matches ? 42 : rows.length > 6 ? 25 : 0,
-        width: mobileQuery.matches ? 82 : undefined,
-        overflow: mobileQuery.matches ? "truncate" : undefined
+    option.series = [{
+      name: spec.unit,
+      type: "custom",
+      dimensions: ["category", "start", "end", "change", "total"],
+      encode: horizontal
+        ? { x: [1, 2], y: 0, tooltip: [0, 1, 2, 3] }
+        : { x: 0, y: [1, 2], tooltip: [0, 1, 2, 3] },
+      data: geometry,
+      renderItem: (params, api) => {
+        const category = api.value(0);
+        const start = api.value(1);
+        const end = api.value(2);
+        const display = api.value(3);
+        const isTotal = Boolean(api.value(4));
+        const startPoint = horizontal ? api.coord([start, category]) : api.coord([category, start]);
+        const endPoint = horizontal ? api.coord([end, category]) : api.coord([category, end]);
+        const thickness = Math.min(
+          horizontal ? api.size([0, 1])[1] * .55 : api.size([1, 0])[0] * .55,
+          horizontal ? 18 : 42
+        );
+        const rawShape = horizontal
+          ? { x: Math.min(startPoint[0], endPoint[0]), y: startPoint[1] - thickness / 2,
+            width: Math.max(1, Math.abs(endPoint[0] - startPoint[0])), height: thickness }
+          : { x: startPoint[0] - thickness / 2, y: Math.min(startPoint[1], endPoint[1]),
+            width: thickness, height: Math.max(1, Math.abs(endPoint[1] - startPoint[1])) };
+        const shape = globalThis.echarts.graphic.clipRectByRect(rawShape, params.coordSys);
+        if (!shape) return null;
+        const direction = end >= start ? 1 : -1;
+        const label = horizontal
+          ? { x: endPoint[0] + direction * 6, y: endPoint[1], align: direction > 0 ? "left" : "right",
+            verticalAlign: "middle" }
+          : { x: endPoint[0], y: endPoint[1] - direction * 6, align: "center",
+            verticalAlign: direction > 0 ? "bottom" : "top" };
+        return { type: "group", children: [
+          { type: "rect", shape, style: { fill: isTotal ? PRIMARY : display < 0 ? PRIMARY_DARK : PRIMARY_LIGHT } },
+          { type: "text", style: { ...label, text: formatDisplayNumber(display, spec.decimals),
+            fill: INK, font: `${horizontal ? 11 : 12}px ${FONT}` } }
+        ] };
       }
-    };
-    option.yAxis = valueAxis(spec);
-    option.series = [
-      { type: "bar", stack: "waterfall", silent: true, itemStyle: { color: "transparent" }, data: helper },
-      { name: spec.unit, type: "bar", stack: "waterfall", data: values,
-        label: { show: true, position: "top", color: INK,
-          fontSize: mobileQuery.matches ? 11 : 12,
-          formatter: params => formatDisplayNumber(params.data.display, spec.decimals) } }
-    ];
+    }];
     return option;
   }
 
@@ -239,7 +260,8 @@
     const option = common(spec, "axis");
     option.grid = categoryGrid();
     option.legend = { data: spec.series, top: 0, type: "scroll" };
-    option.xAxis = { ...valueAxis(spec), max: spec.normalize ? 100 : undefined };
+    option.xAxis = valueAxis(spec);
+    if (spec.normalize && !spec.domain) option.xAxis.max = 100;
     option.yAxis = categoryAxis(rows);
     option.series = spec.series.map((name, seriesIndex) => ({
       name,
@@ -320,7 +342,8 @@
   function histogramOption(spec, rows) {
     const option = common(spec, "axis");
     option.grid = { left: 66, right: 24, top: 24, bottom: 76 };
-    option.xAxis = { type: "category", data: rows.map(row => row.label),
+    option.xAxis = { type: "category", data: rows.map(row =>
+      `${formatDisplayNumber(row.low, spec.decimals)}–${formatDisplayNumber(row.high, spec.decimals)}`),
       axisLabel: { ...axisStyle().axisLabel, interval: 0, rotate: rows.length > 8 ? 35 : 0 } };
     option.yAxis = valueAxis(spec);
     option.series = [{ name: spec.unit, type: "bar", barMaxWidth: 52,
@@ -443,9 +466,11 @@
       let expanded = false;
       let activeFilters = {};
       let visibleRows = spec.data;
+      const applicableFilterIds = new Set(spec.filter_ids || []);
       const chart = globalThis.echarts.init(host, null, { renderer: "svg" });
       const render = () => {
-        visibleRows = spec.data.filter(row => Object.entries(activeFilters).every(
+        visibleRows = spec.data.filter(row => Object.entries(activeFilters)
+          .filter(([filterId]) => applicableFilterIds.has(filterId)).every(
           ([filterId, value]) => !value || row.filters?.[filterId] === value));
         const collapsed = mobileQuery.matches && visibleRows.length > 10 && !expanded;
         const rows = collapsed ? visibleRows.slice(0, 10) : visibleRows;

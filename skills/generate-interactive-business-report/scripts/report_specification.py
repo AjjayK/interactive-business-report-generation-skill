@@ -5,7 +5,7 @@ import html
 import json
 import math
 import re
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from string import Formatter
 from urllib.parse import urlsplit
 
@@ -915,9 +915,20 @@ def sorted_rows(dataset, sort):
     if not sort:
         return rows
     key = sort["key"]
+    column = next(column for column in dataset["columns"] if column["key"] == key)
     present = [row for row in rows if row[key] is not None]
     missing = [row for row in rows if row[key] is None]
-    present.sort(key=lambda row: row[key], reverse=sort["direction"] == "descending")
+    def sort_value(row):
+        value = row[key]
+        if column["type"] == "date":
+            return date.fromisoformat(value).toordinal()
+        if column["type"] == "datetime":
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            if parsed.tzinfo is None:
+                parsed = parsed.replace(tzinfo=timezone.utc)
+            return parsed.astimezone(timezone.utc)
+        return value
+    present.sort(key=sort_value, reverse=sort["direction"] == "descending")
     return present + missing
 
 
@@ -945,6 +956,8 @@ def chart_spec(chart, datasets, filters=(), definition_id=None, ui_labels=None):
     if kind in {"line", "scatter", "timeline"}:
         x_column = next(column for column in dataset["columns"] if column["key"] == chart["x"])
         spec["x_type"] = x_column["type"]
+    applicable = [flt for flt in filters if chart["dataset"] in flt["datasets"]]
+    spec["filter_ids"] = [flt["id"] for flt in applicable]
     data = []
     for row in rows:
         item = {"label": row[chart["category"]]}
@@ -981,7 +994,6 @@ def chart_spec(chart, datasets, filters=(), definition_id=None, ui_labels=None):
                 item["detail"] = row[chart["detail"]]
         elif kind == "scenario":
             item["values"] = [row[key] for key in chart["series"]]
-        applicable = [flt for flt in filters if chart["dataset"] in flt["datasets"]]
         if applicable:
             item["filters"] = {flt["id"]: filter_token(row[flt["column"]]) for flt in applicable}
         data.append(item)
@@ -1082,8 +1094,9 @@ def render_table(block, datasets, block_id, filters=(), ui_labels=UI_LABELS):
             row_values["__drilldown__"] = filter_token(row[block["drilldown_from"]["column"]])
         row_attr = f' data-filter-values="{encoded_values(row_values)}"' if row_values else ""
         records.append(f"<tr{row_attr}>" + "".join(cells) + "</tr>")
+    filter_ids = encoded_values([flt["id"] for flt in applicable_filters])
     table = (
-        f'<div data-report-table>{controls}<div class="table-wrap" tabindex="0" role="region" '
+        f'<div data-report-table data-filter-ids="{filter_ids}">{controls}<div class="table-wrap" tabindex="0" role="region" '
         f'aria-label="{escaped(block["title"])}"><table class="data-table">'
         f'<caption>{escaped(block["title"])}</caption><thead><tr>{"".join(headers)}</tr></thead>'
         f'<tbody>{"".join(records)}</tbody></table></div></div>')
@@ -1109,9 +1122,16 @@ def render_definitions(block, heading_level=3):
 
 
 def allocate_chart_id(definition_id, counters):
-    counters[definition_id] = counters.get(definition_id, 0) + 1
-    suffix = "" if counters[definition_id] == 1 else f"-{counters[definition_id]}"
-    return f"chart-{definition_id}{suffix}"
+    used = counters.setdefault(None, set())
+    count = counters.get(definition_id, 0) + 1
+    while True:
+        suffix = "" if count == 1 else f"-{count}"
+        candidate = f"chart-{definition_id}{suffix}"
+        if candidate not in used:
+            counters[definition_id] = count
+            used.add(candidate)
+            return candidate
+        count += 1
 
 
 def render_chart_reference(definition_id, datasets, charts, chart_renderer, counters,

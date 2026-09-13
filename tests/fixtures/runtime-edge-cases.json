@@ -1,0 +1,103 @@
+{
+  "meta": {
+    "title": "Chart runtime edge cases",
+    "scope": "Synthetic runtime regressions",
+    "source": "Synthetic test data"
+  },
+  "datasets": {
+    "temporal": {
+      "columns": [
+        {"key": "label", "label": "Observation", "type": "text"},
+        {"key": "at", "label": "Observed at", "type": "datetime"},
+        {"key": "value", "label": "Value", "type": "number", "decimals": 0}
+      ],
+      "rows": [
+        {"label": "First", "at": "2026-01-01T00:30:00+02:00", "value": 2},
+        {"label": "Second", "at": "2025-12-31T23:00:00Z", "value": 4},
+        {"label": "Third", "at": "2026-01-01T00:30:00Z", "value": 3}
+      ]
+    },
+    "waterfall": {
+      "columns": [
+        {"key": "label", "label": "Step", "type": "text"},
+        {"key": "kind", "label": "Kind", "type": "text"},
+        {"key": "value", "label": "Value", "type": "number", "decimals": 0}
+      ],
+      "rows": [
+        {"label": "Opening", "kind": "total", "value": -10},
+        {"label": "Growth", "kind": "change", "value": 5},
+        {"label": "Closing", "kind": "total", "value": -5}
+      ]
+    },
+    "stacked": {
+      "columns": [
+        {"key": "label", "label": "Group", "type": "text"},
+        {"key": "one", "label": "One", "type": "number", "decimals": 0},
+        {"key": "two", "label": "Two", "type": "number", "decimals": 0}
+      ],
+      "rows": [
+        {"label": "North", "one": 4, "two": 6},
+        {"label": "South", "one": 3, "two": 5}
+      ]
+    },
+    "heatmap": {
+      "columns": [
+        {"key": "row", "label": "Row", "type": "text"},
+        {"key": "column", "label": "Column", "type": "text"},
+        {"key": "value", "label": "Value", "type": "number", "decimals": 0}
+      ],
+      "rows": [
+        {"row": "A", "column": "One", "value": 1},
+        {"row": "A", "column": "Two", "value": 2},
+        {"row": "B", "column": "One", "value": 3},
+        {"row": "B", "column": "Two", "value": 4}
+      ]
+    },
+    "scoped": {
+      "columns": [
+        {"key": "label", "label": "Label", "type": "text"},
+        {"key": "segment", "label": "Segment", "type": "text"},
+        {"key": "value", "label": "Value", "type": "number", "decimals": 0}
+      ],
+      "rows": [
+        {"label": "Scoped A", "segment": "A", "value": 3},
+        {"label": "Scoped B", "segment": "B", "value": 5}
+      ]
+    },
+    "unrelated": {
+      "columns": [
+        {"key": "label", "label": "Label", "type": "text"},
+        {"key": "value", "label": "Value", "type": "number", "decimals": 0}
+      ],
+      "rows": [
+        {"label": "Unrelated A", "value": 7},
+        {"label": "Unrelated B", "value": 9}
+      ]
+    }
+  },
+  "charts": {
+    "temporal": {"type": "line", "title": "Temporal line", "unit": "Units", "period": "Test", "caption": "Synthetic.", "dataset": "temporal", "category": "label", "x": "at", "value": "value", "x_unit": "Observed at"},
+    "waterfall": {"type": "waterfall", "title": "Negative waterfall", "unit": "Units", "period": "Test", "caption": "Synthetic.", "dataset": "waterfall", "category": "label", "value": "value", "kind": "kind"},
+    "stacked": {"type": "stacked", "title": "Shared-domain stack", "unit": "Units", "period": "Test", "caption": "Synthetic.", "dataset": "stacked", "category": "label", "series": ["one", "two"], "normalize": false, "domain": [0, 100]},
+    "heatmap": {"type": "heatmap", "title": "Heatmap cells", "unit": "Units", "period": "Test", "caption": "Synthetic.", "dataset": "heatmap", "category": "row", "x_category": "column", "value": "value"},
+    "scoped": {"type": "bar", "title": "Scoped chart", "unit": "Units", "period": "Test", "caption": "Synthetic.", "dataset": "scoped", "category": "label", "value": "value"},
+    "unrelated": {"type": "bar", "title": "Unrelated chart", "unit": "Units", "period": "Test", "caption": "Synthetic.", "dataset": "unrelated", "category": "label", "value": "value"}
+  },
+  "sections": [
+    {"id": "temporal", "navigation_label": "Temporal line", "title": "Temporal line", "blocks": [{"type": "chart", "chart": "temporal"}]},
+    {"id": "waterfall", "navigation_label": "Negative waterfall", "title": "Negative waterfall", "blocks": [{"type": "chart", "chart": "waterfall"}]},
+    {"id": "stacked", "navigation_label": "Shared scale", "title": "Shared scale", "blocks": [{"type": "chart", "chart": "stacked"}]},
+    {"id": "heatmap", "navigation_label": "Heatmap cells", "title": "Heatmap cells", "blocks": [{"type": "chart", "chart": "heatmap"}]},
+    {
+      "id": "scope",
+      "navigation_label": "Filter scope",
+      "title": "Filter scope",
+      "filters": [{"id": "segment", "label": "Segment", "column": "segment", "datasets": ["scoped"]}],
+      "blocks": [
+        {"type": "chart", "chart": "scoped"},
+        {"type": "chart", "chart": "unrelated"},
+        {"type": "table", "dataset": "unrelated", "title": "Unrelated detail"}
+      ]
+    }
+  ]
+}

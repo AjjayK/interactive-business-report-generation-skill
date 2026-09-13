@@ -9,6 +9,8 @@
   const UI = decode(document.body.dataset.uiLabels);
   const ui = (key, values = {}) => Object.entries(values).reduce(
     (label, [name, value]) => label.replaceAll(`{${name}}`, String(value)), UI[key]);
+  const temporalValue = raw => Date.parse(
+    /^\d{4}-\d{2}-\d{2}[T ]/.test(raw) && !/(?:Z|[+-]\d{2}:?\d{2})$/i.test(raw) ? `${raw}Z` : raw);
   document.querySelectorAll(".section-body").forEach(body => {
     if (body.querySelector(":scope > .prose-grid")) return;
     let run = [];
@@ -82,6 +84,8 @@
     const sortButtons = [...table.querySelectorAll("[data-sort-column]")];
     const collator = new Intl.Collator(document.documentElement.lang || undefined,
       { numeric: true, sensitivity: "base" });
+    const declaredFilterIds = decode(root.dataset.filterIds);
+    const applicableFilterIds = new Set(Array.isArray(declaredFilterIds) ? declaredFilterIds : []);
     let sectionFilters = Object.fromEntries(
       [...(section?.querySelectorAll("[data-report-filter]") || [])]
         .map(select => [select.dataset.filterId, select.value]));
@@ -90,7 +94,8 @@
       const query = (search?.value || "").trim().toLocaleLowerCase();
       rows.forEach(row => {
         const values = decode(row.dataset.filterValues);
-        const matchesSection = Object.entries(sectionFilters).every(
+        const matchesSection = Object.entries(sectionFilters)
+          .filter(([filterId]) => applicableFilterIds.has(filterId)).every(
           ([filterId, value]) => !value || values[filterId] === value);
         const matchesDrilldown = drilldownValue === null || values.__drilldown__ === drilldownValue;
         row.hidden = !matchesSection || !matchesDrilldown || !row.textContent.toLocaleLowerCase().includes(query);
@@ -113,7 +118,10 @@
           const raw = (cell?.dataset.value ?? cell?.textContent ?? "").trim();
           if (raw === "") return null;
           if (sortType === "number") return Number.isFinite(Number(raw)) ? Number(raw) : null;
-          if (sortType === "date") return Number.isFinite(Date.parse(raw)) ? Date.parse(raw) : null;
+          if (sortType === "date") {
+            const parsed = temporalValue(raw);
+            return Number.isFinite(parsed) ? parsed : null;
+          }
           if (sortType === "boolean") return raw === "true" ? 1 : 0;
           return raw;
         };

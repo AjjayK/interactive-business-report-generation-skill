@@ -1,11 +1,12 @@
 import * as echarts from "echarts/core";
-import { BarChart, CustomChart, LineChart, ScatterChart } from "echarts/charts";
+import { BarChart, CustomChart, HeatmapChart, LineChart, ScatterChart } from "echarts/charts";
 import {
   AriaComponent,
   GridComponent,
   LegendComponent,
   MarkLineComponent,
-  TooltipComponent
+  TooltipComponent,
+  VisualMapComponent
 } from "echarts/components";
 import { LabelLayout } from "echarts/features";
 import { SVGRenderer } from "echarts/renderers";
@@ -13,6 +14,7 @@ import { SVGRenderer } from "echarts/renderers";
 echarts.use([
   BarChart,
   CustomChart,
+  HeatmapChart,
   LineChart,
   ScatterChart,
   AriaComponent,
@@ -20,6 +22,7 @@ echarts.use([
   LegendComponent,
   MarkLineComponent,
   TooltipComponent,
+  VisualMapComponent,
   LabelLayout,
   SVGRenderer
 ]);

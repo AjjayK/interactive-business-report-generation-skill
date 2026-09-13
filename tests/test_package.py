@@ -16,7 +16,7 @@ sys.path.insert(0, str(SKILL_DIR / "scripts"))
 from render_html_report import render_html_report as render
 from chart_library import extent, render_chart
 from encode_image import encode_image
-from report_specification import chart_spec, validate_specification
+from report_specification import chart_spec, sorted_rows, validate_specification
 from safe_markup import validate_fragment
 from theme import contrast_ratio, load_theme
 
@@ -210,6 +210,18 @@ class SpecificationTests(unittest.TestCase):
         self.assertIn("data-report-table", output)
         self.assertLess(output.index("Alpha"), output.index("Beta"))
         self.assertIn('data-value="3"', output)
+
+    def test_datetime_rows_sort_by_instant_before_limits(self):
+        dataset = {
+            "columns": [{"key": "observed_at", "type": "datetime"}],
+            "rows": [
+                {"observed_at": "2025-12-31T23:00:00Z"},
+                {"observed_at": "2026-01-01T00:30:00+02:00"},
+            ],
+        }
+        ordered = sorted_rows(dataset, {"key": "observed_at", "direction": "ascending"})
+        self.assertEqual(ordered[0]["observed_at"], "2026-01-01T00:30:00+02:00")
+        self.assertEqual(ordered[:1], [{"observed_at": "2026-01-01T00:30:00+02:00"}])
 
     def test_consecutive_prose_blocks_use_adaptive_group(self):
         report = content()
@@ -463,10 +475,14 @@ class SpecificationTests(unittest.TestCase):
     def test_chart_definitions_are_reusable_with_unique_rendered_instances(self):
         report = content()
         report["sections"][0]["blocks"].append({"type": "chart", "chart": "growth"})
+        report["charts"]["growth-2"] = dict(report["charts"]["growth"], title="Named collision")
+        report["sections"][0]["blocks"].append({"type": "chart", "chart": "growth-2"})
         output = render(report)
         self.assertIn('id="chart-growth"', output)
         self.assertIn('id="chart-growth-2"', output)
+        self.assertIn('id="chart-growth-2-2"', output)
         self.assertEqual(output.count('data-chart-definition="growth"'), 2)
+        self.assertEqual(output.count('data-chart-definition="growth-2"'), 1)
 
     def test_local_views_reference_distinct_validated_charts(self):
         report = content()
@@ -705,6 +721,22 @@ class ChartTests(unittest.TestCase):
         self.assertNotIn('stroke-width="2.5"', output)
         self.assertIn("1 missing observation", output)
         self.assertIn("Not available", output)
+
+    def test_histograms_reject_unequal_or_discontinuous_bins(self):
+        unequal = spec("histogram")
+        unequal["data"] = [
+            {"label": "0-1", "low": 0, "high": 1, "value": 4},
+            {"label": "1-100", "low": 1, "high": 100, "value": 9},
+        ]
+        with self.assertRaisesRegex(ValueError, "equal widths"):
+            render_chart(unequal)
+        discontinuous = spec("histogram")
+        discontinuous["data"] = [
+            {"label": "0-1", "low": 0, "high": 1, "value": 4},
+            {"label": "2-3", "low": 2, "high": 3, "value": 9},
+        ]
+        with self.assertRaisesRegex(ValueError, "contiguous"):
+            render_chart(discontinuous)
 
     def test_invalid_specs_rejected(self):
         bad = [dict(spec(), script="test"), dict(spec(), data=[]), dict(spec(), decimals=True),

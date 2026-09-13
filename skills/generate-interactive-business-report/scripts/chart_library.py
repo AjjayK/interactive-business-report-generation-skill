@@ -12,7 +12,7 @@ FAMILIES = {"bar", "line", "waterfall", "stacked", "dumbbell", "scatter",
             "bullet", "variance", "histogram", "range", "heatmap", "timeline",
             "scenario"}
 COMMON = {"type", "title", "unit", "period", "caption", "data", "domain", "decimals",
-          "notes", "dataset", "definition_id", "ui_labels"}
+          "notes", "dataset", "definition_id", "ui_labels", "filter_ids"}
 UI_LABELS = {
     "chart_values": "Values and accessible chart detail",
     "chart_values_region": "Chart values",
@@ -132,6 +132,12 @@ def validate(spec):
         text(spec["dataset"], "dataset")
     if "definition_id" in spec:
         text(spec["definition_id"], "definition_id")
+    filter_ids = spec.get("filter_ids", [])
+    check(isinstance(filter_ids, list) and len(filter_ids) <= 8 and
+          all(isinstance(filter_id, str) for filter_id in filter_ids) and
+          len(filter_ids) == len(set(filter_ids)), "filter_ids must contain at most 8 unique ids")
+    for filter_id in filter_ids:
+        text(filter_id, "filter id")
     ui_labels(spec)
     if kind in {"line", "scatter"}:
         text(spec.get("x_unit"), "x_unit")
@@ -159,6 +165,7 @@ def validate(spec):
     running = Decimal(0)
     xs = []
     temporal_xs = []
+    histogram_bins = []
     for index, row in enumerate(rows):
         check(isinstance(row, dict), "each row must be an object")
         text(row.get("label"), "row label")
@@ -236,6 +243,7 @@ def validate(spec):
             check(low <= high, "range bounds must be ordered")
             if kind == "histogram":
                 check(low < high and row["value"] >= 0, "histogram bins need positive width and nonnegative counts")
+                histogram_bins.append((low, high))
             if kind == "range" and "value" in row:
                 value = number(row["value"], True)
                 check(value is None or low <= value <= high, "range value must lie within its bounds")
@@ -261,6 +269,14 @@ def validate(spec):
         except TypeError:
             increasing = False
         check(increasing, "line x values must increase with consistent timezone notation; temporal spacing is preserved")
+    if kind == "histogram":
+        first_width = histogram_bins[0][1] - histogram_bins[0][0]
+        tolerance = max(1e-12, abs(first_width) * 1e-9)
+        for (_, previous_high), (low, high) in zip(histogram_bins, histogram_bins[1:]):
+            check(math.isclose(low, previous_high, rel_tol=0, abs_tol=tolerance),
+                  "histogram bins must be contiguous and ordered")
+            check(math.isclose(high - low, first_width, rel_tol=0, abs_tol=tolerance),
+                  "histogram bins must have equal widths; use a custom figure for density-scaled unequal bins")
     return spec
 
 
@@ -300,7 +316,9 @@ def table(spec):
                                                    separators=(",", ":")).encode("utf-8")).decode("ascii")
             filter_attr = f' data-filter-values="{encoded}"'
         records.append(f'<tr{filter_attr}><th scope="row" data-label="{esc(ui["observation"])}">' + esc(row["label"]) + '</th>' + cells + '</tr>')
-    return f'<details class="appendix"><summary>{esc(ui["chart_values"])}</summary><div class="appendix-body table-wrap" tabindex="0" role="region" aria-label="{esc(ui["chart_values_region"])}"><table class="data-table"><caption>' + esc(spec["unit"] + " · " + spec["period"]) + f'</caption><thead><tr><th scope="col">{esc(ui["observation"])}</th>' + "".join('<th scope="col">' + esc(h) + '</th>' for h in headers) + '</tr></thead><tbody>' + "".join(records) + '</tbody></table></div></details>'
+    filter_ids = base64.b64encode(json.dumps(spec.get("filter_ids", []), ensure_ascii=False,
+                                               separators=(",", ":")).encode("utf-8")).decode("ascii")
+    return f'<details class="appendix"><summary>{esc(ui["chart_values"])}</summary><div class="appendix-body table-wrap" data-report-table data-filter-ids="{filter_ids}" tabindex="0" role="region" aria-label="{esc(ui["chart_values_region"])}"><table class="data-table"><caption>' + esc(spec["unit"] + " · " + spec["period"]) + f'</caption><thead><tr><th scope="col">{esc(ui["observation"])}</th>' + "".join('<th scope="col">' + esc(h) + '</th>' for h in headers) + '</tr></thead><tbody>' + "".join(records) + '</tbody></table></div></details>'
 
 
 def validate_domains(spec):
