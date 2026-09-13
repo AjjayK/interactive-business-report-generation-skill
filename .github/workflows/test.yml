@@ -22,9 +22,9 @@ jobs:
       - name: Validate renderer and theme
         run: python -B -m unittest discover -s tests -v
       - name: Validate minimal example build
-        run: python -B scripts/render_html_report.py examples/minimal-reference-fixture.json report.html --check
+        run: python -B skills/generate-interactive-business-report/scripts/render_html_report.py skills/generate-interactive-business-report/examples/minimal-reference-fixture.json report.html --check
       - name: Validate capability-rich example build
-        run: python -B scripts/render_html_report.py examples/streaming-audience-fixture.json report.html --theme theme.json --check
+        run: python -B skills/generate-interactive-business-report/scripts/render_html_report.py skills/generate-interactive-business-report/examples/streaming-audience-fixture.json report.html --theme skills/generate-interactive-business-report/theme.json --check
       - name: Install browser-test dependencies
         run: npm ci
       - name: Install Chromium

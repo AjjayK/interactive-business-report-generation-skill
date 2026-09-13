@@ -2,9 +2,10 @@
   "name": "generate-interactive-business-report-dev",
   "private": true,
   "version": "1.0.0",
+  "license": "Apache-2.0",
   "description": "Development-only tooling for the vendored interactive report runtime.",
   "scripts": {
-    "build:charts": "esbuild scripts/echarts-entry.js --bundle --minify --format=iife --target=es2020 --legal-comments=inline --outfile=vendor/echarts.custom.min.js",
+    "build:charts": "esbuild skills/generate-interactive-business-report/scripts/echarts-entry.js --bundle --minify --format=iife --target=es2020 --legal-comments=inline --outfile=skills/generate-interactive-business-report/vendor/echarts.custom.min.js",
     "test:ui": "playwright test"
   },
   "devDependencies": {

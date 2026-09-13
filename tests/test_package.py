@@ -11,7 +11,8 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "scripts"))
+SKILL_DIR = ROOT / "skills" / "generate-interactive-business-report"
+sys.path.insert(0, str(SKILL_DIR / "scripts"))
 from render_html_report import render_html_report as render
 from chart_library import extent, render_chart
 from encode_image import encode_image
@@ -504,11 +505,20 @@ class SpecificationTests(unittest.TestCase):
 
 class SecurityTests(unittest.TestCase):
     def test_skill_metadata_allows_selection_only_for_explicit_report_requests(self):
-        skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
-        integration = (ROOT / "agents" / "openai.yaml").read_text(encoding="utf-8")
+        skill = (SKILL_DIR / "SKILL.md").read_text(encoding="utf-8")
+        integration = (SKILL_DIR / "agents" / "openai.yaml").read_text(encoding="utf-8")
         self.assertIn("name: generate-interactive-business-report", skill)
         self.assertIn("allow_implicit_invocation: true", integration)
         self.assertIn("explicitly asks to create, build, generate, or revise", skill)
+
+    def test_skills_cli_package_is_nested_and_self_contained(self):
+        self.assertFalse((ROOT / "SKILL.md").exists())
+        for relative in [
+            "SKILL.md", "LICENSE", "agents/openai.yaml", "scripts/render_html_report.py",
+            "report-shell.html", "report-base.css", "report-charts.js",
+            "report-interactions.js", "theme.json", "vendor/echarts.custom.min.js",
+        ]:
+            self.assertTrue((SKILL_DIR / relative).is_file(), relative)
 
     def test_structured_data_cannot_inject_markup(self):
         payloads = ['<script>window.__probe=1</script>', '<svg onload="window.__probe=1">',
@@ -547,9 +557,9 @@ class SecurityTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             package = Path(tmp)
             for name in ["report-shell.html", "report-base.css", "report-charts.js", "report-interactions.js", "theme.json"]:
-                shutil.copy(ROOT / name, package / name)
+                shutil.copy(SKILL_DIR / name, package / name)
             (package / "vendor").mkdir()
-            shutil.copy(ROOT / "vendor" / "echarts.custom.min.js", package / "vendor" / "echarts.custom.min.js")
+            shutil.copy(SKILL_DIR / "vendor" / "echarts.custom.min.js", package / "vendor" / "echarts.custom.min.js")
             shell = (package / "report-shell.html").read_text(encoding="utf-8")
             (package / "report-shell.html").write_text(
                 shell.replace("  </style>", "      </style>").replace("  </script>", "      </script>"),
@@ -571,7 +581,7 @@ class SecurityTests(unittest.TestCase):
             source = Path(tmp) / "report-specification.json"
             target = Path(tmp) / "report.html"
             source.write_text(json.dumps(content()), encoding="utf-8")
-            command = [sys.executable, "-B", str(ROOT / "scripts" / "render_html_report.py"),
+            command = [sys.executable, "-B", str(SKILL_DIR / "scripts" / "render_html_report.py"),
                        str(source), str(target), "--check"]
             done = subprocess.run(command, capture_output=True, text=True)
             self.assertEqual(done.returncode, 0, done.stderr)
@@ -579,9 +589,9 @@ class SecurityTests(unittest.TestCase):
             self.assertIn("1 chart(s)", done.stdout)
 
     def test_static_and_print_code_paths_are_removed(self):
-        renderer = (ROOT / "scripts" / "render_html_report.py").read_text(encoding="utf-8")
-        css = (ROOT / "report-base.css").read_text(encoding="utf-8")
-        controller = (ROOT / "report-interactions.js").read_text(encoding="utf-8")
+        renderer = (SKILL_DIR / "scripts" / "render_html_report.py").read_text(encoding="utf-8")
+        css = (SKILL_DIR / "report-base.css").read_text(encoding="utf-8")
+        controller = (SKILL_DIR / "report-interactions.js").read_text(encoding="utf-8")
         self.assertNotIn("--no-interactions", renderer)
         self.assertNotIn("interactive:", renderer)
         self.assertNotIn("@media print", css)
@@ -591,7 +601,7 @@ class SecurityTests(unittest.TestCase):
         self.assertNotIn("beforeprint", controller)
 
     def test_vendored_chart_runtime_matches_manifest_and_has_notices(self):
-        vendor = ROOT / "vendor"
+        vendor = SKILL_DIR / "vendor"
         manifest = json.loads((vendor / "manifest.json").read_text(encoding="utf-8"))
         bundle = (vendor / manifest["bundle"]).read_bytes()
         self.assertEqual(manifest["version"], "6.1.0")
@@ -607,13 +617,13 @@ class SecurityTests(unittest.TestCase):
 
 class ThemeTests(unittest.TestCase):
     def test_packaged_theme_is_valid_and_meets_text_contrast(self):
-        theme = load_theme(ROOT / "theme.json")
+        theme = load_theme(SKILL_DIR / "theme.json")
         self.assertEqual(theme["name"], "Default accessible blue")
         self.assertGreaterEqual(
             contrast_ratio(theme["colors"]["ink"], theme["colors"]["paper"]), 4.5)
 
     def test_custom_theme_controls_css_and_chart_tokens(self):
-        theme = json.loads((ROOT / "theme.json").read_text(encoding="utf-8"))
+        theme = json.loads((SKILL_DIR / "theme.json").read_text(encoding="utf-8"))
         theme["name"] = "Synthetic custom theme"
         theme["colors"]["primary"] = "#6D28D9"
         theme["layout"]["radius_px"] = 8
@@ -626,7 +636,7 @@ class ThemeTests(unittest.TestCase):
         self.assertIn('token("--primary",', output)
 
     def test_theme_rejects_unsafe_fonts_unknown_fields_and_low_contrast(self):
-        original = json.loads((ROOT / "theme.json").read_text(encoding="utf-8"))
+        original = json.loads((SKILL_DIR / "theme.json").read_text(encoding="utf-8"))
         cases = []
         unsafe_font = json.loads(json.dumps(original))
         unsafe_font["typography"]["text"] = ["Arial; color: red"]
@@ -645,7 +655,7 @@ class ThemeTests(unittest.TestCase):
                     render(content(), theme_path=path)
 
     def test_validated_dark_theme_is_supported(self):
-        theme = json.loads((ROOT / "theme.json").read_text(encoding="utf-8"))
+        theme = json.loads((SKILL_DIR / "theme.json").read_text(encoding="utf-8"))
         theme["name"] = "Synthetic dark theme"
         theme["mode"] = "dark"
         theme["colors"].update({

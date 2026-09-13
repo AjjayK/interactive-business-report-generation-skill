@@ -6,6 +6,7 @@ const AxeBuilder = require("@axe-core/playwright").default;
 const { test, expect } = require("@playwright/test");
 
 const root = path.resolve(__dirname, "..", "..");
+const skillDir = path.join(root, "skills", "generate-interactive-business-report");
 const artifact = path.join(root, "tests", ".artifacts", "streaming-audience-report.html");
 const reportUrl = pathToFileURL(artifact).href;
 const galleryArtifact = path.join(root, "tests", ".artifacts", "chart-gallery.html");
@@ -20,39 +21,39 @@ const minimalUrl = pathToFileURL(minimalArtifact).href;
 test.beforeAll(() => {
   execFileSync("python", [
     "-B",
-    path.join(root, "scripts", "render_html_report.py"),
-    path.join(root, "examples", "streaming-audience-fixture.json"),
+    path.join(skillDir, "scripts", "render_html_report.py"),
+    path.join(skillDir, "examples", "streaming-audience-fixture.json"),
     artifact
   ], { stdio: "inherit" });
   execFileSync("python", [
     "-B",
-    path.join(root, "scripts", "render_html_report.py"),
-    path.join(root, "examples", "chart-gallery.json"),
+    path.join(skillDir, "scripts", "render_html_report.py"),
+    path.join(skillDir, "examples", "chart-gallery.json"),
     galleryArtifact
   ], { stdio: "inherit" });
   execFileSync("python", [
     "-B",
-    path.join(root, "scripts", "render_html_report.py"),
-    path.join(root, "examples", "flexibility-fixture.json"),
+    path.join(skillDir, "scripts", "render_html_report.py"),
+    path.join(skillDir, "examples", "flexibility-fixture.json"),
     flexibilityArtifact
   ], { stdio: "inherit" });
-  const customTheme = JSON.parse(fs.readFileSync(path.join(root, "theme.json"), "utf8"));
+  const customTheme = JSON.parse(fs.readFileSync(path.join(skillDir, "theme.json"), "utf8"));
   customTheme.name = "Synthetic purple theme";
   customTheme.colors.primary = "#6D28D9";
   const customThemePath = path.join(root, "tests", ".artifacts", "custom-theme.json");
   fs.writeFileSync(customThemePath, JSON.stringify(customTheme), "utf8");
   execFileSync("python", [
     "-B",
-    path.join(root, "scripts", "render_html_report.py"),
-    path.join(root, "examples", "chart-gallery.json"),
+    path.join(skillDir, "scripts", "render_html_report.py"),
+    path.join(skillDir, "examples", "chart-gallery.json"),
     themedArtifact,
     "--theme",
     customThemePath
   ], { stdio: "inherit" });
   execFileSync("python", [
     "-B",
-    path.join(root, "scripts", "render_html_report.py"),
-    path.join(root, "examples", "minimal-reference-fixture.json"),
+    path.join(skillDir, "scripts", "render_html_report.py"),
+    path.join(skillDir, "examples", "minimal-reference-fixture.json"),
     minimalArtifact
   ], { stdio: "inherit" });
 });

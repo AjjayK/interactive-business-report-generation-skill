@@ -1,5 +1,7 @@
 # Generate interactive business report skill
 
+[![skills.sh](https://skills.sh/b/AjjayK/interactive-business-report-generation-skill)](https://skills.sh/AjjayK/interactive-business-report-generation-skill)
+
 Create secure, standalone HTML business reports from an analysis, dataset, or
 completed research conversation. The generated report embeds its charts, data,
 styles, and interactions, so readers need only the resulting `.html` file.
@@ -7,9 +9,10 @@ styles, and interactions, so readers need only the resulting `.html` file.
 Purpose-built for organization-specific themes, reporting standards, and
 governance requirements—flexible in content, consistent in quality.
 
-The repository is one portable Agent Skill. `SKILL.md` is the cross-platform
-contract. `agents/openai.yaml` is optional OpenAI integration metadata; Claude
-and Snowflake do not use it for discovery.
+The repository contains one portable Agent Skill under
+`skills/generate-interactive-business-report/`. Its `SKILL.md` is the
+cross-platform contract. `agents/openai.yaml` is optional OpenAI integration
+metadata; Claude and Snowflake do not use it for discovery.
 
 ## Why this architecture
 
@@ -59,44 +62,50 @@ standards: flexible report content with controlled rendering quality.
 - Offline output with a restrictive Content Security Policy and no runtime
   network requests.
 - Validated brand, semantic-color, typography, and layout customization through
-  `theme.json`.
+  `skills/generate-interactive-business-report/theme.json`.
 
 ## Install
 
 | Platform | Installation |
 | --- | --- |
-| ChatGPT or Codex | Copy this repository to a recognized skills directory, or distribute it as an OpenAI plugin. `agents/openai.yaml` supplies optional UI metadata and enables automatic selection for explicit HTML business-report requests. |
-| Claude Code | Copy or link the repository as `.claude/skills/generate-interactive-business-report` in a project, or `~/.claude/skills/generate-interactive-business-report` for personal use. |
+| Skills CLI | Run `npx skills add AjjayK/interactive-business-report-generation-skill --skill generate-interactive-business-report`. Add `--global --agent codex` for a global Codex installation. |
+| ChatGPT or Codex | Copy `skills/generate-interactive-business-report/` to a recognized skills directory, or distribute it as an OpenAI plugin. Its `agents/openai.yaml` supplies optional UI metadata and enables automatic selection for explicit HTML business-report requests. |
+| Claude Code | Copy or link `skills/generate-interactive-business-report/` as `.claude/skills/generate-interactive-business-report` in a project, or `~/.claude/skills/generate-interactive-business-report` for personal use. |
 | Claude Cowork | Upload or enable the skill through Claude's Customize/Skills interface. Cowork does not read a machine's `~/.claude/skills` directory. |
-| Snowflake CoWork | Upload the skill folder from **Capabilities > Skills**. Enable Cortex Agent code execution because report generation runs Python. |
-| Snowflake Cortex Agents or Cortex Code | Register the repository from Git, a local folder, or a Snowflake stage. These products discover the root `SKILL.md`. |
+| Snowflake CoWork | Upload `skills/generate-interactive-business-report/` from **Capabilities > Skills**. Enable Cortex Agent code execution because report generation runs Python. |
+| Snowflake Cortex Agents or Cortex Code | Register the nested skill folder from Git, a local folder, or a Snowflake stage. |
 
 Python 3.10 or later is the only runtime requirement. Node.js and Playwright are
 needed only to maintain the packaged browser code and run visual tests.
 
 ## Generate a report
 
-Create a JSON specification following `report-specification.md`, then run:
+Create a JSON specification following
+`skills/generate-interactive-business-report/report-specification.md`, then run
+this command from the repository root:
 
 ```bash
-python -B scripts/render_html_report.py report-specification.json report.html
+python -B skills/generate-interactive-business-report/scripts/render_html_report.py report-specification.json report.html
 ```
 
-Start with `examples/minimal-reference-fixture.json`. Use the richer fixtures only for
-the specific capabilities they demonstrate; they are not report outlines.
+Start with
+`skills/generate-interactive-business-report/examples/minimal-reference-fixture.json`.
+Use the richer fixtures only for the specific capabilities they demonstrate;
+they are not report outlines.
 
 Validate without writing output:
 
 ```bash
-python -B scripts/render_html_report.py report-specification.json report.html --check
+python -B skills/generate-interactive-business-report/scripts/render_html_report.py report-specification.json report.html --check
 ```
 
 ## Customize the theme
 
-Copy `theme.json`, change the tokens, and pass the copy to the renderer:
+Copy `skills/generate-interactive-business-report/theme.json`, change the tokens,
+and pass the copy to the renderer:
 
 ```bash
-python -B scripts/render_html_report.py report-specification.json report.html --theme my-theme.json
+python -B skills/generate-interactive-business-report/scripts/render_html_report.py report-specification.json report.html --theme my-theme.json
 ```
 
 The configuration supports light or dark mode, brand and semantic colors, text and number font
@@ -104,7 +113,8 @@ stacks, content width, reading width, spacing, and corner radius. Hex colors,
 font names, numeric bounds, and essential contrast pairs are validated before
 the report is built. The agent may derive these tokens from supplied brand guidance.
 Custom CSS and JavaScript are intentionally unsupported.
-See `report-design.md` and `theme.schema.json` for the contract.
+See `skills/generate-interactive-business-report/report-design.md` and
+`skills/generate-interactive-business-report/theme.schema.json` for the contract.
 
 ## Embed an image
 
@@ -112,7 +122,7 @@ Validate and encode a local PNG or JPEG before adding it to an `image`, `figure`
 `meta.logo` object:
 
 ```bash
-python -B scripts/encode_image.py path/to/image.png --pretty
+python -B skills/generate-interactive-business-report/scripts/encode_image.py path/to/image.png --pretty
 ```
 
 The result remains inside the standalone HTML. External image URLs and local file
@@ -135,10 +145,13 @@ npx playwright install chromium
 npm run test:ui
 ```
 
-The ECharts bundle is pinned under `vendor/`. Review `security-notes.md` before
-changing the renderer, schema, CSS, or controllers.
+The ECharts bundle is pinned under
+`skills/generate-interactive-business-report/vendor/`. Review
+`skills/generate-interactive-business-report/security-notes.md` before changing
+the renderer, schema, CSS, or controllers.
 
 ## License
 
-No open-source license has been selected yet. Add a `LICENSE` file before public
-distribution so users know what reuse is permitted.
+Licensed under the [Apache License 2.0](LICENSE). Third-party components retain
+their original licenses; see
+`skills/generate-interactive-business-report/THIRD_PARTY_NOTICES.md`.
