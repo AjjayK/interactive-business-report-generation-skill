@@ -8,6 +8,39 @@ The repository is one portable Agent Skill. `SKILL.md` is the cross-platform
 contract. `agents/openai.yaml` is optional OpenAI integration metadata; Claude
 and Snowflake do not use it for discovery.
 
+## Why this architecture
+
+Many report-generation approaches ask an agent to produce an entire webpage
+directly. That provides flexibility, but presentation, dependencies,
+accessibility, security, and numerical formatting can vary between models and
+runs.
+
+This skill separates report authoring from report rendering:
+
+```text
+Agent or LLM
+    ↓
+Validated report specification
+    ↓
+Versioned and tested renderer
+    ↓
+Standalone interactive HTML
+```
+
+The report's purpose, narrative, sections, and visualizations remain flexible.
+The renderer consistently applies:
+
+- Typed data and formatting rules.
+- Shared data across charts, tables, filters, and drill-downs.
+- Semantic colors with explicit meaning.
+- Responsive and accessible presentation.
+- Theme tokens instead of arbitrary CSS.
+- Restrictive security controls and offline operation.
+
+This is especially useful when different agents generate many reports for
+different purposes, but every result must meet the same quality and governance
+standards: flexible report content with controlled rendering quality.
+
 ## Capabilities
 
 - Purpose-adaptive standard, executive-brief, analytical-narrative, and
