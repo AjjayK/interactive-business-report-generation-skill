@@ -4,6 +4,9 @@ Create secure, standalone HTML business reports from an analysis, dataset, or
 completed research conversation. The generated report embeds its charts, data,
 styles, and interactions, so readers need only the resulting `.html` file.
 
+Purpose-built for organization-specific themes, reporting standards, and
+governance requirements—flexible in content, consistent in quality.
+
 The repository is one portable Agent Skill. `SKILL.md` is the cross-platform
 contract. `agents/openai.yaml` is optional OpenAI integration metadata; Claude
 and Snowflake do not use it for discovery.
