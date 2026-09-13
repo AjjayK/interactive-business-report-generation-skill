@@ -1,0 +1,19 @@
+# Python caches
+**/__pycache__/
+*.py[cod]
+
+# Node development dependencies and logs
+node_modules/
+npm-debug.log*
+
+# Generated QA artifacts (Playwright checks, chart galleries)
+tests/.artifacts/
+playwright-report/
+test-results/
+
+# Generated report artifacts
+output/
+portfolio-performance-sample-report.html
+
+# Build products
+*.zip

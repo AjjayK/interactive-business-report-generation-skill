@@ -1,0 +1,33 @@
+name: Test skill
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Validate renderer and theme
+        run: python -B -m unittest discover -s tests -v
+      - name: Validate minimal example build
+        run: python -B scripts/render_html_report.py examples/minimal-reference-fixture.json report.html --check
+      - name: Validate capability-rich example build
+        run: python -B scripts/render_html_report.py examples/streaming-audience-fixture.json report.html --theme theme.json --check
+      - name: Install browser-test dependencies
+        run: npm ci
+      - name: Install Chromium
+        run: npx playwright install chromium
+      - name: Run browser, accessibility, and visual tests
+        run: npm run test:ui
